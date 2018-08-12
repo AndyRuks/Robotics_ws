@@ -129,42 +129,21 @@ class ForwardKinematics(object):
         all_transforms = tf.msg.tfMessage()
         # We start with the identity
         T = tf.transformations.identity_matrix()
-
         # YOUR CODE GOES HERE
-        count = 0  # type: int
-        l = joint_values.name  # type: list
-
-        thefile = open('troubleshoot.txt','w')
-        thefile.write("joint_values.name\n")
-        for item in l:
-            thefile.write("%s\n" % item)
-        thefile = open('troubleshoot4.txt','w')
-        thefile.write("link_names\n")
-        for item in link_names:
-            thefile.write("%s\n" %item)
-#            print>>thefile, item
-        thefile = open('troubleshoot3.txt', 'w')
-        thefile.write("joints[i].name\n")
-        for item in joints:
-            thefile.write("%s type: %s rpy:%s xyz: %s axis: %s \n" % (item.name,item.type,item.origin.rpy,item.origin.xyz,item.axis))
-        #            print>>thefile, item
-        for current_link in link_names:
+        count = 0  # acces the link_names
+        for current_joint in joints:
             T_prev = T
-            ind = l.index(current_link) #find index of current link name
-            #ind = [i for i, x in enumerate(joint_values.name) if x == current_link]
-            if joints[count].type == 'revolute':
+            Rm = tf.transformations.quaternion_matrix(tf.transformations.quaternion_from_euler(current_joint.origin.rpy))  # create rotation matrix
+            Tm = tf.transformations.translation_matrix(current_joint.origin.xyz)
+            T = tf.transformations.concatenate_matrices(Tm, Rm)
+            if current_joint.type != 'fixed':
+                ind = joint_values.name.index(current_joint)  #  find index of current joint name
                 q = joint_values.position[ind]  # angle of rotation for revolute joint. translation distance for prismatic joint
-                axis = joints[count].axis #axis of rotation
-                Rm = tf.transformations.quaternion_matrix(tf.transformations.quaternion_from_euler(joints[count].origin.rpy))#create rotation matrix
-                Tm = tf.transformations.translation_matrix(joints[count].origin.xyz)
-                Rq = tf.transformations.quaternion_matrix(tf.transformations.quaternion_about_axis(q, axis))#create rotation from current value
-                T = tf.transformations.concatenate_matrices(Tm,Rm,Rq)
-            else: #if joint is fixed --> world_link_lwr_arm_base_joint
-                Rm = tf.transformations.quaternion_matrix(tf.transformations.quaternion_from_euler(0.0, 0.0, 0.0))
-                Tm = tf.transformations.translation_matrix([0.0, 0.0, 0.0])
-                T = tf.transformations.concatenate_matrices(Tm,Rm)
+                axis = current_joint.axis #  axis of rotation
+                Rq = tf.transformations.quaternion_matrix(tf.transformations.quaternion_about_axis(q, axis))#  create rotation from current value
+                T = tf.transformations.concatenate_matrices(T,Rq)
             T = tf.transformations.concatenate_matrices(T_prev,T)
-            TransformMsg = convert_to_message(T, current_link, 'world_link')
+            TransformMsg = convert_to_message(T, link_names[count], 'world_link')
             all_transforms.transforms.append(TransformMsg)
             count += 1
         return all_transforms
